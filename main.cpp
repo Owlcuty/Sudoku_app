@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <string>
+#include <cstring>
 #include <assert.h>
 
 #include <SFML/Graphics.hpp>
@@ -12,6 +12,8 @@ enum Btn_classes {
 };
 
 namespace Settings {
+	const int ReferenceObject = 0;
+
 	const int NMax = 9;
 	const int Width = 1366;
 	const int Height = 768;
@@ -53,10 +55,10 @@ namespace Settings {
 	const sf::Color Btn_empty_col  = sf::Color(236, 240, 208);
 	const sf::Color Colors_groups[NMax] = {Salmon,
 					       PastelSky,
-					       Salad,
+					       DarkKhaki,
 					       Purple,
 					       Peach,
-					       DarkKhaki,
+					       Salad,
 					       Orange,
 					       Aquamarine,
 					       Maroon};
@@ -67,12 +69,25 @@ namespace Settings {
 	const int Warn_size = 21;
 	const sf::Color Warn_color= Carmine;
 
-	const int Title_size = 28;
+	const int Sdk_size = 26;
+
+	const int Title_size = 24;
 
 	const int Outline_size = 2;
+	const int Outline_sdk_size = 1;
 	const sf::Color Outline_color = sf::Color::Black;
 
 	const int Num_btn_menu = 3;
+
+	const int Classic_map[NMax][NMax] = {{1, 1, 1, 2, 2, 2, 3, 3, 3},
+					     {1, 1, 1, 2, 2, 2, 3, 3, 3},
+					     {1, 1, 1, 2, 2, 2, 3, 3, 3},
+					     {4, 4, 4, 5, 5, 5, 6, 6, 6},
+					     {4, 4, 4, 5, 5, 5, 6, 6, 6},
+					     {4, 4, 4, 5, 5, 5, 6, 6, 6},
+					     {7, 7, 7, 8, 8, 8, 9, 9, 9},
+					     {7, 7, 7, 8, 8, 8, 9, 9, 9},
+					     {7, 7, 7, 8, 8, 8, 9, 9, 9}};
 }
 
 void rand_array(int nmax, int array[]);
@@ -109,7 +124,7 @@ class Background {
 // ----- Text ----------------------------------------------------------------------------------------------------------
 
 struct Text {
-    Coord point;
+    Coord pos;
     std::string str;
     sf::Font font;
     sf::Color color;
@@ -122,8 +137,8 @@ struct Text {
 
 
 void Text::draw(sf::RenderWindow *window) {
-    assert(0 <= point.x && point.x < Settings::Width);
-    assert(0 <= point.y && point.y < Settings::Height);
+    assert(0 <= pos.x && pos.x < Settings::Width);
+    assert(0 <= pos.y && pos.y < Settings::Height);
     assert(char_size > 10 && char_size < 36);
 
     sf::Text text;
@@ -132,7 +147,7 @@ void Text::draw(sf::RenderWindow *window) {
     text.setString(str);
     text.setFillColor(color);
     text.setCharacterSize(char_size);
-    text.setPosition(point);
+    text.setPosition(pos);
     text.rotate(angle);
 
     window->draw(text);
@@ -181,6 +196,8 @@ class Button {
 		this->is_active = is_active;
 	}
 
+	virtual Button* clone() const;
+
 	void draw(sf::RenderWindow* window) {
 		assert(0 <= pos.x && pos.x <= Settings::Width);
 		assert(0 <= pos.y && pos.y <= Settings::Height);
@@ -199,6 +216,11 @@ class Button {
 
 };
 
+Button *Button::clone() const {
+	return new Button(*this);
+}
+
+
 class Btn_mode : public Button {
 
    public:
@@ -214,6 +236,9 @@ class Btn_mode : public Button {
 		return (id == 1);
 	}
 
+	Button* clone() const override {
+		return new Btn_mode(*this);
+	}
 };
 
 class Btn_group: public Button {
@@ -233,6 +258,9 @@ class Btn_group: public Button {
 		return (id == 1);
 	}
 
+	Button* clone() const override {
+		return new Btn_group(*this);
+	}
 };
 
 class Btn_sudoku : public Button {
@@ -241,12 +269,22 @@ class Btn_sudoku : public Button {
 	
 	Btn_sudoku(int id, Coord pos, sf::Font font) : Button(id, pos, font)
 	{
-	     size = Settings::Btn_dflt_size;
+	     size = Settings::Btn_sudoku_size;
 	     fill_color = Settings::Btn_empty_col;
+	     outline_size = Settings::Outline_sdk_size;
+	     this->text = {{pos.x + 24, pos.y + 14}, "", font, Settings::Text_color, Settings::Sdk_size};
+	}
+
+	void set_color(int number) {
+	     fill_color = Settings::Colors_groups[number - 1];
 	}
 
 	int clicked(int id) {
-		return (id == 1);
+	     return (id == 1);
+	}
+	
+	Button* clone() const override {
+		return new Btn_sudoku(*this);
 	}
 
 };
@@ -267,7 +305,7 @@ struct Button {
 
     bool is_active = false;
 
-    Coord point;
+    Coord pos;
     int number;
 
     sf::Font font;
@@ -290,18 +328,18 @@ struct Button {
 };
 
 void Button::draw(sf::RenderWindow *window) {
-    assert(0 <= point.x && point.x < Settings::Width);
-    assert(0 <= point.y && point.y < Settings::Height);
+    assert(0 <= pos.x && point.x < Settings::Width);
+    assert(0 <= pos.y && point.y < Settings::Height);
 
     outline_color = Settings::Func_graph_color[(int) (is_active) * number];
     if (id == 6) {
         outline_color = Settings::Fill_act_col[(int) (is_active) * number];
     }
-    fill_text = {{point.x + 10, point.y + 3}, text, font, Settings::Text_color, Settings::Text_size};
+    fill_text = {{pos.x + 10, point.y + 3}, text, font, Settings::Text_color, Settings::Text_size};
 
     sf::RectangleShape shape;
 
-    shape.setPosition(point);
+    shape.setPosition(pos);
     shape.setSize(size);
     shape.setFillColor(fill_col);
     shape.setOutlineColor(outline_color);
@@ -329,13 +367,13 @@ void set_buttons(Button buttons[], int num_of_elems, int step_x, int step_y) {
         if (!num) {
             font = buttons[0].font;
             fill_col = buttons[num].fill_col;
-            start_pos = buttons[num].point;
+            start_pos = buttons[num].pos;
             outline_size = buttons[num].outline_size;
-            buttons[num].point = {0, 0};
+            buttons[num].pos = {0, 0};
             buttons[num].size = {0, 0};
             continue;
         }
-        buttons[num].point = {start_pos.x + step_x * (num - 1), start_pos.y + step_y * (num - 1)};
+        buttons[num].pos = {start_pos.x + step_x * (num - 1), start_pos.y + step_y * (num - 1)};
         buttons[num].font = font;
         buttons[num].fill_col = fill_col;
         buttons[num].outline_size = outline_size;
@@ -388,26 +426,43 @@ void build_menu_window(sf::RenderWindow* window, Text* text_title, Button** choo
 
 }
 
-void build_sudoku(sf::RenderWindow* window, Button* sudoku[][Settings::NMax], sf::Font font) {
+void build_sudoku(sf::RenderWindow* window, Button* sudoku[][Settings::NMax], sf::Font font, int groups_map[][Settings::NMax]) {
+
+	sf::RectangleShape border;
+	border.setPosition(sf::Vector2f(0.3 * Settings::Width, 0.1484375 * Settings::Height));
+	border.setSize(sf::Vector2f(60 * Settings::NMax, 60 * Settings::NMax));
+	border.setOutlineColor(sf::Color(10, 10, 10));
+	border.setOutlineThickness(Settings::Outline_size);
+
+	window->draw(border);
+
+	for (int y = 0; y < Settings::NMax; y ++) {
+		for (int x = 0; x < Settings::NMax; x ++) {
+			sudoku[y][x]->fill_color = Settings::Colors_groups[groups_map[y][x] - 1];
+		}
+	}
 
 	draw_mtrx_buttons(window, sudoku, Settings::NMax);
 
 }
 
+/*
 void set_btn(Button** btn, int* id, Coord pos, sf::Font font, int type, std::string text = nullptr, int number = -1) {
 
 	switch (type) {
 		case Btn:
-			*btn= new Button((*id)++, pos, font);
+			*btn = new Button((*id)++, pos, font);
 			break;
 		case BtnMode:
-			*btn= new Btn_mode((*id)++, pos, font, text);
+			*btn = new Btn_mode((*id)++, pos, font, text);
 			break;
 		case BtnGroup:
-			*btn= new Btn_group((*id)++, pos, font, number);
+			*btn = new Btn_group((*id)++, pos, font, number);
 			break;
 		case BtnSudoku:
-			*btn= new Btn_sudoku((*id)++, pos, font);
+			printf("%i\n", __LINE__);
+			*btn = new Btn_sudoku((*id)++, pos, font);
+			printf("%i\n", __LINE__);
 			break;
 		default:
 			printf("You haven't neccessary buttons for this mode\n");
@@ -415,11 +470,53 @@ void set_btn(Button** btn, int* id, Coord pos, sf::Font font, int type, std::str
 	}	
 	
 }
+*/
 
-void set_buttons(Button** btns, int num_elem, int* id, Coord pos, sf::Vector2f step, sf::Font font, int type = 0, std::string texts[] = nullptr, int number = -1) {
-	for (int i = 0; i < num_elem; i ++) {
-		set_btn(&btns[i], id, {pos.x + step.x * i, pos.y + step.y * i}, font, type, texts[i], number);
+void set_buttons(Button** btns, int num_elem, int* id, sf::Vector2f step, std::string texts[] = nullptr, int number = -1) {
+	for (int i = 1; i < num_elem; i ++) {
+		btns[i] = btns[Settings::ReferenceObject]->clone();
+		btns[i]->pos = {btns[i]->pos.x + step.x * i, btns[i]->pos.y + step.y * i}; 
+		btns[i]->id = (*id)++;
+		btns[i]->text.pos = {btns[i]->text.pos.x + step.x * i, btns[i]->text.pos.y + step.y * i};
+		if (texts == nullptr) { continue; btns[i]->text.str = ""; }
+		btns[i]->text.str = texts[i];
 	}
+}
+
+void set_mtrx_buttons(Button* btns[][Settings::NMax], int num_elem, int* id, sf::Vector2f step, std::string texts[][Settings::NMax] = nullptr, int number = -1) {
+
+	for (int y = 0; y < num_elem; y ++) {
+		for (int x = 0; x < num_elem; x ++) {
+			if (!y && !x) continue;
+			btns[y][x] = btns[Settings::ReferenceObject][Settings::ReferenceObject]->clone();
+			btns[y][x]->pos = {btns[y][x]->pos.x + step.x * x, btns[y][x]->pos.y + step.y * y};
+			btns[y][x]->id = (*id)++;
+			btns[y][x]->text.pos = {btns[y][x]->text.pos.x + step.x * x, btns[y][x]->text.pos.y + step.y * y};
+			if (texts == nullptr) continue;
+			btns[y][x]->text.str = texts[y][x];
+		}
+	}	
+
+}
+
+bool check_border(Button* border, sf::RenderWindow *window) {
+    return ((*border).pos.x <= sf::Mouse::getPosition(*window).x
+            && sf::Mouse::getPosition(*window).x <= (*border).pos.x + (*border).size.x
+            && (*border).pos.y <= sf::Mouse::getPosition(*window).y
+            && sf::Mouse::getPosition(*window).y <= (*border).pos.y + (*border).size.y);
+}
+
+bool is_clicked(Button* border, sf::RenderWindow *window, sf::Clock clock) {
+    return (sf::Mouse::isButtonPressed(sf::Mouse::Left) && clock.getElapsedTime().asMilliseconds() > 200 && check_border(border, window));
+}
+
+char* itos(int n) {
+	char* s;
+	while (n > 0) {
+		s += (n % 10) + '0';
+		n /= 10;
+	}
+	return s;
 }
 
 int main() {
@@ -436,13 +533,27 @@ int main() {
 
 	Text text_choose_menu;
 	Text text_title_menu;
-	Button* menu[Settings::Num_btn_menu]; //Btn_mode
 
+	Button* menu[Settings::Num_btn_menu]; //Btn_mode
 	std::string menu_texts[Settings::Num_btn_menu] = {"Classic", "Custom", "Just quit"};
 
-	set_buttons(menu, Settings::Num_btn_menu, &last_id, {Settings::Width / 2 - 80, Settings::Height / 2}, {0, 75}, font, BtnMode, menu_texts);
+	menu[Settings::ReferenceObject] = new Btn_mode(last_id++, {Settings::Width / 2 - 80, Settings::Height / 2}, font, menu_texts[Settings::ReferenceObject]);
 
-	bool is_chosen = false;
+	set_buttons(menu, Settings::Num_btn_menu, &last_id, {0, 75}, menu_texts);
+
+	int (*groups_map)[Settings::NMax] = static_cast<int (*)[Settings::NMax]>(calloc(Settings::NMax, Settings::NMax * sizeof(*groups_map)));
+
+	Button* sudoku[Settings::NMax][Settings::NMax]; //Btn_sudoku
+
+	sudoku[Settings::ReferenceObject][Settings::ReferenceObject] = new Btn_sudoku(last_id++, {0.3 * Settings::Width, 0.1484375 * Settings::Height}, font);
+
+	set_mtrx_buttons(sudoku, Settings::NMax, &last_id, {60, 60});
+
+	int is_chosen = 0;
+	bool is_act = false;
+	sf::Vector2i choise_now = {0, 0};
+
+	sf::Clock clock;
 
 	while (window.isOpen()) {
 		sf::Event event{};
@@ -457,10 +568,59 @@ int main() {
 
 		if (!is_chosen) {
 			build_menu_window(&window, &text_title_menu, menu, &text_choose_menu, font);
+			for (int i = 0; i < Settings::Num_btn_menu; i ++) {
+			     if (is_clicked(menu[i], &window, clock)) {
+				 clock.restart();
+				 if (i == Settings::Num_btn_menu - 1) {
+					 window.close();
+				 }
+				 is_chosen = i + 1;
+			     }
+			}
+
+		}
+		if (is_chosen == 1) {
+			for (int y = 0; y < Settings::NMax; y ++) {
+				for (int x = 0; x < Settings::NMax; x ++) {
+					groups_map[y][x] = Settings::Classic_map[y][x];
+				}
+			}
+			build_sudoku(&window, sudoku, font, groups_map);
+			for (int y = 0; y < Settings::NMax; y ++) {
+			     for (int x = 0; x < Settings::NMax; x ++) {
+			          if (is_clicked(sudoku[y][x], &window, clock)) {
+					clock.restart();
+					if (is_act) {
+						if (choise_now.x == x && choise_now.y == y) {
+						       is_act = false;
+						} else {
+							choise_now = {x, y};
+						}
+						break;		
+					} else {
+						is_act = true;
+						choise_now = {x, y};
+					}
+				  }
+			     }
+			}
+			if (is_act && event.type == sf::Event::KeyReleased && 27 <= event.key.code && event.key.code <= 35) {
+				sudoku[choise_now.y][choise_now.x]->text.str = (std::to_string(event.key.code - 26)).c_str();
+				is_act = false;
+			}
+			if (is_act && event.key.code == sf::Keyboard::Escape) {
+				is_act = false;
+			}
+			if (is_act && event.key.code == sf::Keyboard::Delete) {
+				sudoku[choise_now.y][choise_now.x]->text.str = "";
+			}
 		}	
 
 		window.display();
 
 	}		
+
+	free(groups_map);
+	return 0;
 
 }
