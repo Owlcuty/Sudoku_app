@@ -34,6 +34,7 @@ namespace Settings {
 	const Size Btn_dflt_size    = sf::Vector2f(160, 30);
 	const Size Btn_sudoku_size  = sf::Vector2f(60,  60);
 	const Size Btn_grp_size     = sf::Vector2f(60,  30);
+	const Size Btn_submit_size  = sf::Vector2f(160, 50);
 	const Size Mini_sudoku_size = sf::Vector2f(30,  30);
 	const sf::Color Btn_dflt_color = sf::Color(230, 230, 230);
 
@@ -93,7 +94,6 @@ namespace Settings {
 void rand_array(int nmax, int array[]);
 void copy_array(int ar1[], const int ar2[], int n);
 
-bool is_clicked(sf::Clock clock);
 
 // ----- Background ----------------------------------------------------------------------------------------------------
 
@@ -214,7 +214,13 @@ class Button {
 		text.draw(window);
 	}
 
+	virtual int clicked() const;
+
 };
+
+int Button::clicked() const {
+	return 0;
+}
 
 Button *Button::clone() const {
 	return new Button(*this);
@@ -289,6 +295,27 @@ class Btn_sudoku : public Button {
 
 };
 
+class Btn_submit : public Button {
+
+   public:
+	
+	Btn_submit(int id, Coord pos, sf::Font font, std::string str) : Button(id, pos, font)
+	{
+	     size = Settings::Btn_submit_size;
+	     fill_color = Settings::Btn_dflt_color;
+	     this->text = {{pos.x + (float)(size.x / 2.5) - sizeof(str), pos.y + size.y / 2 - 12}, str, font, Settings::Text_color, Settings::Text_size};
+	}
+
+	int clicked() const override {
+		return (id == 84);
+	}
+
+	Button* clone() const override {
+		return new Btn_submit(*this);
+	}
+};
+
+bool is_clicked(Button* border, sf::RenderWindow *window, sf::Clock* clock);
 // --------------------------------------------------------------------------------------------------------------------
 
 
@@ -426,7 +453,7 @@ void build_menu_window(sf::RenderWindow* window, Text* text_title, Button** choo
 
 }
 
-void build_sudoku(sf::RenderWindow* window, Button* sudoku[][Settings::NMax], sf::Font font, int groups_map[][Settings::NMax]) {
+void build_sudoku(sf::RenderWindow* window, Button* sudoku[][Settings::NMax], sf::Font font, int groups_map[][Settings::NMax], Button* btn_solve) {
 
 	sf::RectangleShape border;
 	border.setPosition(sf::Vector2f(0.3 * Settings::Width, 0.1484375 * Settings::Height));
@@ -444,6 +471,52 @@ void build_sudoku(sf::RenderWindow* window, Button* sudoku[][Settings::NMax], sf
 
 	draw_mtrx_buttons(window, sudoku, Settings::NMax);
 
+	btn_solve->draw(window);
+}
+
+bool check_border(Button* border, sf::RenderWindow *window) {
+    return ((*border).pos.x <= sf::Mouse::getPosition(*window).x
+            && sf::Mouse::getPosition(*window).x <= (*border).pos.x + (*border).size.x
+            && (*border).pos.y <= sf::Mouse::getPosition(*window).y
+            && sf::Mouse::getPosition(*window).y <= (*border).pos.y + (*border).size.y);
+}
+
+
+bool is_clicked(Button* border, sf::RenderWindow *window, sf::Clock* clock) {
+    return (sf::Mouse::isButtonPressed(sf::Mouse::Left) && clock->getElapsedTime().asMilliseconds() > 200 && check_border(border, window));
+}
+
+
+void input_sudoku(sf::RenderWindow* window, sf::Event event, Button* sudoku[][Settings::NMax], bool* is_act, sf::Clock* clock, sf::Vector2i* choise_now) {
+	for (int y = 0; y < Settings::NMax; y ++) {
+		for (int x = 0; x < Settings::NMax; x ++) {
+			if (is_clicked(sudoku[y][x], window, clock)) {
+				clock->restart();
+				printf("%i:: Id of clicked button: %i" "\n", __LINE__, sudoku[y][x]->id);
+				if (is_act) {
+					if (choise_now->x == x && choise_now->y == y) {
+						*is_act = false;
+					} else {
+						*choise_now = {x, y};
+					}
+					break;		
+				} else {
+					*is_act = true;
+					*choise_now = {x, y};
+				}
+			}
+		}
+	}
+	if (is_act && event.type == sf::Event::KeyReleased && 27 <= event.key.code && event.key.code <= 35) {
+		sudoku[choise_now->y][choise_now->x]->text.str = (std::to_string(event.key.code - 26)).c_str();
+		*is_act = false;
+	}
+	if (is_act && event.key.code == sf::Keyboard::Escape) {
+		*is_act = false;
+	}
+	if (is_act && event.key.code == sf::Keyboard::Delete) {
+		sudoku[choise_now->y][choise_now->x]->text.str = "";
+	}
 }
 
 /*
@@ -499,17 +572,6 @@ void set_mtrx_buttons(Button* btns[][Settings::NMax], int num_elem, int* id, sf:
 
 }
 
-bool check_border(Button* border, sf::RenderWindow *window) {
-    return ((*border).pos.x <= sf::Mouse::getPosition(*window).x
-            && sf::Mouse::getPosition(*window).x <= (*border).pos.x + (*border).size.x
-            && (*border).pos.y <= sf::Mouse::getPosition(*window).y
-            && sf::Mouse::getPosition(*window).y <= (*border).pos.y + (*border).size.y);
-}
-
-bool is_clicked(Button* border, sf::RenderWindow *window, sf::Clock clock) {
-    return (sf::Mouse::isButtonPressed(sf::Mouse::Left) && clock.getElapsedTime().asMilliseconds() > 200 && check_border(border, window));
-}
-
 char* itos(int n) {
 	char* s;
 	while (n > 0) {
@@ -517,6 +579,13 @@ char* itos(int n) {
 		n /= 10;
 	}
 	return s;
+}
+
+bool is_ready(Button* btn, sf::RenderWindow* window, sf::Event event, sf::Clock* clock) {
+	if (is_clicked(btn, window, clock)) {
+		clock->restart();
+		return(btn->clicked());
+	} else return false;
 }
 
 int main() {
@@ -549,8 +618,11 @@ int main() {
 
 	set_mtrx_buttons(sudoku, Settings::NMax, &last_id, {60, 60});
 
+	Button* btn_solve = new Btn_submit(last_id++, {Settings::Width - 200, Settings::Height - 140}, font, "Solve sudoku");
+
 	int is_chosen = 0;
 	bool is_act = false;
+	bool is_blocked = false;
 	sf::Vector2i choise_now = {0, 0};
 
 	sf::Clock clock;
@@ -569,8 +641,9 @@ int main() {
 		if (!is_chosen) {
 			build_menu_window(&window, &text_title_menu, menu, &text_choose_menu, font);
 			for (int i = 0; i < Settings::Num_btn_menu; i ++) {
-			     if (is_clicked(menu[i], &window, clock)) {
+			     if (is_clicked(menu[i], &window, &clock)) {
 				 clock.restart();
+				 printf("%i:: Id of clicked button: %i" "\n", __LINE__, menu[i]->id);
 				 if (i == Settings::Num_btn_menu - 1) {
 					 window.close();
 				 }
@@ -585,34 +658,12 @@ int main() {
 					groups_map[y][x] = Settings::Classic_map[y][x];
 				}
 			}
-			build_sudoku(&window, sudoku, font, groups_map);
-			for (int y = 0; y < Settings::NMax; y ++) {
-			     for (int x = 0; x < Settings::NMax; x ++) {
-			          if (is_clicked(sudoku[y][x], &window, clock)) {
-					clock.restart();
-					if (is_act) {
-						if (choise_now.x == x && choise_now.y == y) {
-						       is_act = false;
-						} else {
-							choise_now = {x, y};
-						}
-						break;		
-					} else {
-						is_act = true;
-						choise_now = {x, y};
-					}
-				  }
-			     }
-			}
-			if (is_act && event.type == sf::Event::KeyReleased && 27 <= event.key.code && event.key.code <= 35) {
-				sudoku[choise_now.y][choise_now.x]->text.str = (std::to_string(event.key.code - 26)).c_str();
-				is_act = false;
-			}
-			if (is_act && event.key.code == sf::Keyboard::Escape) {
-				is_act = false;
-			}
-			if (is_act && event.key.code == sf::Keyboard::Delete) {
-				sudoku[choise_now.y][choise_now.x]->text.str = "";
+			build_sudoku(&window, sudoku, font, groups_map, btn_solve);
+			if (!is_blocked) input_sudoku(&window, event, sudoku, &is_act, &clock, &choise_now); 
+			if (is_ready(btn_solve, &window, event, &clock)) {
+				printf("Yeah, we're here - %i" "\n", __LINE__);
+				is_blocked = true;
+				//solve_sudoku(sudoku, groups_map, ... ?);
 			}
 		}	
 
