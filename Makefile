@@ -5,6 +5,8 @@ SFML_FLAGS = -lsfml-graphics -lsfml-window -lsfml-system
 
 NAME = Sudoku
 
+SOLVE_NAME = Solver
+
 all: exec main.o Sudoku.o
 
 exec: 
@@ -15,3 +17,7 @@ main.o:
 
 Sudoku.o:
 	./$(NAME)
+
+solver.o:
+	$(CC) $(CFLAGS) $(SOLVE_NAME) solver.cpp && ./$(SOLVE_NAME)
+

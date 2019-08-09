@@ -588,6 +588,10 @@ bool is_ready(Button* btn, sf::RenderWindow* window, sf::Event event, sf::Clock*
 	} else return false;
 }
 
+void solver(Button* sudoku[][Settings::NMax], int groups[][Settings::NMax]) {
+
+}
+
 int main() {
 	sf::RenderWindow window(sf::VideoMode(Settings::Width, Settings::Height), "Sudoku solving");
 	sf::Font font;
